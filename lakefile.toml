@@ -1,0 +1,10 @@
+name = "FVDemocracy"
+version = "0.1.0"
+defaultTargets = ["FVDemocracy", "alaska"]
+
+[[lean_lib]]
+name = "FVDemocracy"
+
+[[lean_exe]]
+name = "alaska"
+root = "Main"

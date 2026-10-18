@@ -1,0 +1,21 @@
+# Lean build artifacts
+.lake/
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+
+# CVR exports (downloaded by scripts/download_cvr.py)
+cvr/
+
+# OS
+.DS_Store
+
+.vscode/
+
+# Local agent configuration
+.claude/
+CLAUDE.md
+AGENTS.md
