@@ -16,5 +16,8 @@ import FVDemocracy.Alaska.ParseCVR.Parse
 import FVDemocracy.Alaska.ParseCVR.ParseProofs
 import FVDemocracy.Alaska.Reproduction.Tabulate
 import FVDemocracy.Alaska.Reproduction.PublishedReports
+import FVDemocracy.Alaska.Reproduction.Report
 import FVDemocracy.Alaska.Reproduction.Examples.House2022
 import FVDemocracy.Alaska.Duplicates
+import FVDemocracy.Alaska.Profile
+import FVDemocracy.Alaska.ProfileData

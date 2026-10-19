@@ -48,10 +48,31 @@ The Lean project has no dependencies beyond Lean core and `Std` (no Mathlib).
   - `PublishedReports.lean` — the round-by-round totals of every published
     multi-round report of the 2022 special, 2022 general and 2024 general
     elections, except the recounts.
+  - `Report.lean` — `reportRounds`, the rounds of `reproductionTabulate` in the
+    form of a published report.
 - `FVDemocracy/Alaska/Duplicates.lean` — removing duplicate rankings (6 AAC 25.072)
   from the ballots before the tabulation, and proofs that this changes nothing on
   ballots without a duplicate ranking and that on ballots without an overvote the
   reproduction is the tabulation with duplicates removed.
+- `FVDemocracy/Alaska/Profile.lean` — ballot profiles (each distinct list of
+  rankings with its number of ballots), `Profile.ofBallots`, which computes the
+  profile of a list of ballots, the tabulation of a profile, and proofs that
+  `Profile.ofBallots` gives a profile of the ballots and that on a profile of an
+  election's ballots the tabulation gives the results of `tabulate`,
+  `reproductionTabulate` and `reportRounds`.
+- `FVDemocracy/Alaska/ProfileData.lean` — the JSON data files of profiles, with
+  round-trip proofs, and the `profile_data%` elaborator, which reads a data file
+  while a result file is built and writes the missing data files of a CVR export
+  first (see Results below).
+- `FVDemocracy/Alaska/Results/` — the results of every ranked-choice contest of
+  the three elections (see Results below):
+  - `data/<Election>/<Contest>.json` — the profile of the contest's ballots,
+    generated from the CVR export.
+  - `<Election>/<Contest>.lean` — theorems giving the results of `tabulate` and
+    `reproductionTabulate` and, for a contest with a published report, that the
+    rounds of `reproductionTabulate` are those of the report, for every election
+    with the ballots of the profile.
+  - `<Election>.lean` — imports the result files of the election.
 - `FVDemocracy/Alaska/ParseCVR/` — the CVR export:
   - `Export.lean` — types for the export files.
   - `Parse.lean` — JSON parsing of the export, including streaming
@@ -107,6 +128,47 @@ Each command tabulates the contests of `publishedReports` for that election with
 `reproductionTabulate`. In every round, it compares each candidate's votes and the
 Blanks, Exhausted and Overvotes counts with the published report. It prints one
 line per contest and exits with status 1 if any number differs.
+
+## Results
+
+```bash
+lake exe alaska cvr/2022-general --results 2022-general FVDemocracy/Alaska/Results
+lake build Results
+```
+
+`--results <election> <out-dir>` writes two files for each ranked-choice contest
+of the export: the data file `<out-dir>/data/<Election>/<Contest>.json` and the
+Lean file `<out-dir>/<Election>/<Contest>.lean`. The data file holds
+`Profile.ofBallots` of the contest's ballots, which `ofBallots_isProfileOf`
+proves is a profile of them. The Lean file defines the candidates `cands` and the
+profile `profile` of the contest, and proves theorems giving the results of
+`tabulate` and `reproductionTabulate` and, for the contests of
+`publishedReports`, that `reportRounds` gives the published rounds. Before
+writing, the program checks natively that the profile tabulation gives these
+results on the ballots.
+
+`profile` is `profile_data% "<export-dir>" <contest-id> "<data-file>"`, with
+paths relative to the package root. While the Lean file is built, this reads the
+data file, checks that it encodes back to the JSON it was read from, and
+elaborates to its profile. If the data file is missing, it first reads the
+export and writes the data file of every ranked-choice contest of the export
+that has none. This runs in the interpreter and takes about 75 seconds for the
+2022 special export and about 5 minutes for a general-election export. The result
+files are in the `Results` library, which `needs` the data directory, so Lake
+rebuilds them when a data file changes.
+
+The theorems take as hypotheses that an election has the candidates `cands` and
+that `profile` is a profile of its ballots. From the export to these:
+
+- proved: `Session.toBallot?` (one session's ballot for a contest) meets its
+  specification, `Profile.ofBallots` gives a profile of the ballots, and the
+  JSON of the export and of the data files decodes to what was encoded;
+- not proved: reading the export files (`readBallots`), and that `profile_data%`
+  turns the data file's profile into the term `profile`.
+
+`decide +kernel` checks the theorems, without `native_decide`. `Results` is not
+a default target, so `lake build` and the `lean` workflow do not check them. `lake build Results` builds all 115 result files in about 75 seconds with
+parallel jobs; the 2024 presidential contest alone takes about that long.
 
 ## Comparing readings of duplicate rankings
 

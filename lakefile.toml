@@ -8,3 +8,14 @@ name = "FVDemocracy"
 [[lean_exe]]
 name = "alaska"
 root = "Main"
+
+[[lean_lib]]
+name = "Results"
+roots = ["FVDemocracy.Alaska.Results"]
+globs = ["FVDemocracy.Alaska.Results.+"]
+needs = ["profileData"]
+
+[[input_dir]]
+name = "profileData"
+path = "FVDemocracy/Alaska/Results/data"
+text = true

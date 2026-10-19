@@ -23,6 +23,7 @@ structure PublishedRound where
   blanks : Nat
   exhausted : Nat
   overvotes : Nat
+deriving DecidableEq
 
 /-- A published report: the rounds of the contest `contestId` of `election`, which is
 `"2022-special"`, `"2022-general"` or `"2024-general"`. -/

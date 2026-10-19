@@ -1,0 +1,1 @@
+import FVDemocracy.Alaska.Results.Special2022.USRepresentativeSpecialGeneral

@@ -3,6 +3,7 @@ import FVDemocracy.Alaska.Reproduction.Tabulate
 import FVDemocracy.Alaska.Reproduction.PublishedReports
 import FVDemocracy.Alaska.ParseCVR.Parse
 import FVDemocracy.Alaska.Duplicates
+import FVDemocracy.Alaska.ProfileData
 
 /-!
 # Tabulating the ranked-choice contests of a CVR export
@@ -17,6 +18,11 @@ contest when no id is given, and prints the rounds.
 every ranked-choice contest, with `tabulate`, with `tabulate` after `Election.dropDuplicates`, with
 `reproductionTabulate`, with `truncateTabulate` and with `truncateTabulate` after
 `Election.dropDuplicates`, and prints the rounds of the five side by side.
+`lake exe alaska <export-dir> --results <election> <out-dir>` writes, for each ranked-choice
+contest, the data file of the profile of its ballots (`writeProfileData`) and a Lean file with
+theorems giving the results of `tabulate`, `reproductionTabulate` and, for the contests of
+`publishedReports`, `reportRounds` (`resultSource`), after checking that the profile functions give
+the results of these on the ballots.
 
 Ballots use each session's current state with ambiguous marks dropped. A card
 contest with the `InvalidContest` outstack condition is left out. The candidates
@@ -153,17 +159,6 @@ def printContest (candidates : Array Candidate) (contest : Contest) (ballots : L
   unless winners == (tabulate e).winners do
     throw (IO.userError s!"contest {contest.id}: printed winners differ from tabulate")
 
-/-- The rounds of `tabulateRounds cont bs` when each round defeats a single candidate: the
-continuing candidates and the ballots of each round, ending with the final round. `none` if some
-round has a tie for the fewest votes. -/
-partial def singlePathRounds (cont : List Cand) (bs : List Ballot) :
-    Option (List (List Cand × List Ballot)) :=
-  if cont.length ≤ 2 then some [(cont, bs)]
-  else
-    match singleRound cont bs with
-    | [(d, bs')] => ((cont, bs) :: ·) <$> singlePathRounds (cont.erase d) bs'
-    | _ => none
-
 /-- Compares the rounds of `reproductionTabulate` on `contest` and `ballots` with the published
 `report`, and prints a line for the contest and one for each number that differs. Returns whether
 all of them agree. -/
@@ -270,9 +265,185 @@ def compareDuplicates (candidates : Array Candidate) (contest : Contest) (ballot
     IO.println <| padRight label labelWidth ++ String.join
       ((cells.zip widths).map fun (cell, w) => "  " ++ padLeft cell w)
 
+/-- The candidate `c` as Lean source. -/
+def candSource : Cand → String
+  | .regular id => s!".regular {id}"
+  | .writeIn i => s!".writeIn {i}"
+
+/-- The tree `t` as Lean source. -/
+partial def treeSource : RCVTree → String
+  | .winner c => s!".winner ({candSource c})"
+  | .branch xs =>
+    ".branch [" ++ ", ".intercalate (xs.map fun (c, t) => s!"({candSource c}, {treeSource t})") ++ "]"
+
+/-- The candidates defeated in turn along `t` and the candidate elected, when no round of `t` has
+a tie. -/
+partial def treePath : RCVTree → Option (List Cand × Cand)
+  | .winner c => some ([], c)
+  | .branch [(d, t)] => (treePath t).map fun (ds, c) => (d :: ds, c)
+  | .branch _ => none
+
+/-- A candidate name `Last, First` as `First Last`, for each name of a ticket `A / B`. -/
+def displayName (name : String) : String :=
+  " / ".intercalate ((name.splitOn " / ").map fun n =>
+    match n.splitOn ", " with
+    | last :: first :: rest => " ".intercalate ((first :: rest) ++ [last])
+    | _ => n)
+
+/-- The words of `text` in lines of at most `width` characters, the first starting with `first`
+and the others with `indent`. -/
+def wrap (width : Nat) (first indent text : String) : String :=
+  let words := (text.splitOn " ").filter (· != "")
+  let (lines, line) := words.foldl (init := (#[], first)) fun (lines, line) w =>
+    if line.length + 1 + w.length > width && line.length > indent.length then
+      (lines.push line, indent ++ w)
+    else if line == first then (lines, line ++ w)
+    else (lines, line ++ " " ++ w)
+  "\n".intercalate (lines.push line).toList
+
+/-- What the tree `t` of `tab` says, as a sentence. -/
+def treeWords (name : Cand → String) (tab : String) (t : RCVTree) : String :=
+  match treePath t with
+  | some ([], c) => s!"`{tab}` elects {name c} in round 1."
+  | some ([d], c) => s!"`{tab}` elects {name c} over {name d}."
+  | some ([d, d'], c) => s!"`{tab}` defeats {name d} and elects {name c} over {name d'}."
+  | some (ds, c) =>
+    s!"`{tab}` defeats {", then ".intercalate (ds.dropLast.map name)}, and elects {name c} over \
+      {(ds.getLast?.map name).getD ""}."
+  | none => s!"`{tab}` has a tie for the fewest votes in some round; its winners are \
+      {", ".intercalate (t.winners.map name)}."
+
+/-- A Lean file for `contest` with the ballots `ballots`, whose profile `p` is in the data file
+`dataFile`: the candidates `cands`, the profile `profile` read by `profile_data%`, and theorems
+giving `tabulate`, `reproductionTabulate` and, when `report` is given, `reportRounds` on every
+election with these candidates and ballots with the rankings of the profile. Fails unless the
+profile functions give the results of `tabulate`, `reproductionTabulate` and `reportRounds`. -/
+def resultSource (command electionTitle ns : String) (dir dataFile : System.FilePath)
+    (candidates : Array Candidate) (contest : Contest) (report : Option PublishedReport)
+    (ballots : List Ballot) (p : Profile) : IO String := do
+  let name (c : Cand) := displayName (candName candidates c)
+  let e ← contestElection candidates contest ballots
+  let fail (msg : String) : IO Unit := throw (IO.userError s!"contest {contest.id}: {msg}")
+  let t := tabulate e
+  let t' := reproductionTabulate e
+  unless t == p.tabulate e.cands do fail "Profile.tabulate differs from tabulate"
+  unless t' == p.toReproduction.tabulate e.cands do
+    fail "Profile.tabulate after Profile.toReproduction differs from reproductionTabulate"
+  let ids := report.map fun r => (r.rounds.head?.map (·.votes.map (·.1))).getD []
+  if let (some r, some ids) := (report, ids) then
+    unless reportRounds ids e == some r.rounds do
+      fail "reportRounds differs from the published report"
+    unless reportRounds ids e == p.reportRounds ids e.cands do
+      fail "Profile.reportRounds differs from reportRounds"
+  let mut out := "import FVDemocracy.Alaska.ProfileData\n\n/-!\n"
+  out := out ++ s!"# {electionTitle}: {contest.description}\n\n"
+  out := out ++ wrap 100 "" "" s!"Contest {contest.id} of the CVR export `{dir}`. `profile` is \
+    `Profile.ofBallots` of its {formatNat ballots.length} ballots as `contestBallots` reads them, \
+    in {formatNat p.length} entries. `profile_data%` reads it from `{dataFile}`, and writes that \
+    file from the export first if it is missing. `cands` are the regular candidates of the \
+    contest followed by the write-ins marked on its ballots:" ++ "\n\n"
+  for c in e.cands do
+    out := out ++ s!"* `{candSource c}`: {name c}\n"
+  out := out ++ "\nFor every election `e` with the candidates `cands` whose ballots have the \
+    rankings of `profile`:\n\n"
+  out := out ++ wrap 100 "* " "  " s!"`tabulate_eq`: {treeWords name "tabulate" t}" ++ "\n"
+  out := out ++ wrap 100 "* " "  "
+    s!"`reproductionTabulate_eq`: {treeWords name "reproductionTabulate" t'}" ++ "\n"
+  if report.isSome then
+    out := out ++ "* `reportRounds_eq`: the rounds of `reproductionTabulate` are those of the \
+      published report\n  (`publishedReports`).\n"
+  out := out ++ s!"\nGenerated by `{command}`.\n-/\n\n"
+  out := out ++ s!"namespace {ns}\n\nopen Alaska\n\n"
+  out := out ++ s!"def cands : List Cand := [{", ".intercalate (e.cands.map candSource)}]\n"
+  out := out ++ s!"\ndef profile : Profile :=\n  \
+    profile_data% \"{dir}\" {contest.id}\n    \"{dataFile}\"\n"
+  let hyps := "(e : Election) (hc : e.cands = cands)\n    (hb : profile.IsProfileOf e.ballots)"
+  out := out ++ s!"
+unseal Profile.tabulateRounds in
+theorem profile_tabulate :
+    profile.tabulate cands =
+      {treeSource t} := by
+  decide +kernel
+
+unseal Profile.tabulateRounds in
+theorem profile_toReproduction_tabulate :
+    profile.toReproduction.tabulate cands =
+      {treeSource t'} := by
+  decide +kernel
+
+{wrap 100 "/-- " "" s!"{treeWords name "tabulate" t} -/"}
+theorem tabulate_eq {hyps} :
+    tabulate e =
+      {treeSource t} := by
+  rw [tabulate_eq_profileTabulate hb, hc, profile_tabulate]
+
+{wrap 100 "/-- " "" s!"{treeWords name "reproductionTabulate" t'} -/"}
+theorem reproductionTabulate_eq {hyps} :
+    reproductionTabulate e =
+      {treeSource t'} := by
+  rw [reproductionTabulate_eq_profileTabulate hb, hc, profile_toReproduction_tabulate]
+"
+  if let some ids := ids then
+    let election := (report.map (·.election)).getD ""
+    out := out ++ s!"
+/-- The rounds of the published report. -/
+def publishedRounds : Option (List PublishedRound) :=
+  (publishedReports.find? fun r => r.election == \"{election}\" && r.contestId == {contest.id}).map
+    (·.rounds)
+
+unseal Profile.singlePathRounds in
+theorem profile_reportRounds :
+    profile.reportRounds {ids} cands = publishedRounds := by
+  decide +kernel
+
+/-- The rounds of `reproductionTabulate` are those of the published report. -/
+theorem reportRounds_eq {hyps} :
+    reportRounds {ids} e = publishedRounds := by
+  rw [reportRounds_eq_profileReportRounds _ hb, hc, profile_reportRounds]
+"
+  out := out ++ s!"\nend {ns}\n"
+  pure out
+
+/-- Writes, for each ranked-choice contest `contests` of the export `dir` of `election`, the data
+file `outDir/data/<Election>/<Contest>.json` of `Profile.ofBallots` of its ballots and a Lean file
+`outDir/<Election>/<Contest>.lean` (`resultSource`), and a file `outDir/<Election>.lean` that
+imports the Lean files. Module and namespace names follow the path of `outDir`, with
+`FVDemocracy.` dropped from the namespace. -/
+def writeResults (dir : System.FilePath) (election : String) (outDir : System.FilePath)
+    (contests : Array Contest) : IO Unit := do
+  let (year, kind) := match election.splitOn "-" with
+    | [y, k] => (y, k)
+    | _ => (election, "")
+  let electionName := capitalize kind ++ year
+  let electionTitle := s!"{year} {kind} election"
+  let modulePrefix := ".".intercalate (outDir.components.filter (· != ""))
+  let nsPrefix := (modulePrefix.dropPrefix "FVDemocracy.").toString
+  let command := s!"lake exe alaska {dir} --results {election} {outDir}"
+  let candidates ← readJsonFile (Manifest Candidate) (dir / "CandidateManifest.json")
+  let ballots ← contestBallots dir contests
+  let dataDir := outDir / "data" / electionName
+  IO.FS.createDirAll (outDir / electionName)
+  IO.FS.createDirAll dataDir
+  let mut imports : Array String := #[]
+  for (contest, bs) in contests.toList.zip ballots.toList do
+    let cname := contestName contest.description
+    let report := publishedReports.find? fun r =>
+      r.election == election && r.contestId == contest.id
+    let p := Profile.ofBallots bs.toList
+    let dataFile := dataDir / profileFileName contest
+    writeProfileData dataFile
+      { contestId := contest.id, description := contest.description, profile := p }
+    let src ← resultSource command electionTitle s!"{nsPrefix}.{electionName}.{cname}" dir
+      dataFile candidates.list contest report bs.toList p
+    IO.FS.writeFile (outDir / electionName / s!"{cname}.lean") src
+    IO.println s!"{contest.description}: {electionName}/{cname}.lean"
+    imports := imports.push s!"import {modulePrefix}.{electionName}.{cname}"
+  IO.FS.writeFile (outDir / s!"{electionName}.lean")
+    ("\n".intercalate imports.toList ++ "\n")
+
 def usage : String :=
   "usage: lake exe alaska <export-dir> [--list | --reproduce <election> | \
-    [--dropduplicates] contest-id ...]"
+    --results <election> <out-dir> | [--dropduplicates] contest-id ...]"
 
 def main (args : List String) : IO UInt32 := do
   let dir :: rest := args
@@ -300,6 +471,9 @@ def main (args : List String) : IO UInt32 := do
     for ((report, contest), bs) in (reports.zip selected.toList).zip ballots.toList do
       ok := (← checkReport candidates.list contest report bs.toList) && ok
     return if ok then 0 else 1
+  if let ["--results", election, outDir] := rest then
+    writeResults dir election outDir rcv
+    return 0
   let (dropDuplicates, rest) := match rest with
     | "--dropduplicates" :: ids => (true, ids)
     | _ => (false, rest)
