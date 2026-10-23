@@ -9,13 +9,13 @@ def votesFor (c : Cand) (cont : List Cand) (bs : List Ballot) : Nat :=
 
 theorem votesFor_le_cons (c : Cand) (cont : List Cand) (bs : List Ballot) (b : Ballot) :
     votesFor c cont bs ≤ votesFor c cont (b :: bs) := by
-  simp [votesFor]
-  grind
+  simp only [votesFor, List.countP_cons]
+  split <;> omega
 
 theorem votesFor_cons_le (c : Cand) (cont : List Cand) (bs : List Ballot) (b : Ballot) :
     votesFor c cont (b :: bs) ≤ votesFor c cont bs+ 1 := by
-  simp [votesFor]
-  grind
+  simp only [votesFor, List.countP_cons]
+  split <;> omega
 
 def candTallies (cont : List Cand) (bs : List Ballot) : List (Cand × Nat) :=
   cont.map (fun c => (c, votesFor c cont bs))
@@ -38,7 +38,7 @@ theorem loser_exists {cont : List Cand} (bs : List Ballot) (h_ne : cont ≠ []) 
     cases h : (tallies cont bs).min? with
     | none => simp_all [tallies]
     | some m => exact ⟨m, rfl⟩
-  obtain ⟨c, hc, hcm⟩ := List.mem_map.mp (List.min?_mem hm)
+  obtain ⟨c, hc, hcm⟩ := List.mem_map.mp (List.min?_eq_some_iff_nat.mp hm).1
   refine List.ne_nil_of_mem (a := c) ?_
   simp [losers, lowestTally, hm, hc, hcm]
 
@@ -52,7 +52,7 @@ theorem votesFor_eq_lowestTally_iff {cont : List Cand} (bs : List Ballot) {d : C
   cases h : (cont.map fun c => votesFor c cont bs).min? with
   | none => simp_all
   | some m =>
-    rw [List.min?_eq_some_iff] at h
+    rw [List.min?_eq_some_iff_nat] at h
     simp only [List.mem_map, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂] at h
     obtain ⟨⟨c, hc, rfl⟩, hmin⟩ := h
     simp only [Option.getD_some]
@@ -73,7 +73,7 @@ theorem votesFor_eq_highestTally_iff {cont : List Cand} (bs : List Ballot) {c : 
   cases h : (cont.map fun c => votesFor c cont bs).max? with
   | none => simp_all
   | some m =>
-    rw [List.max?_eq_some_iff] at h
+    rw [List.max?_eq_some_iff_nat] at h
     simp only [List.mem_map, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂] at h
     obtain ⟨⟨d, hd, rfl⟩, hmax⟩ := h
     simp only [Option.getD_some]
@@ -91,13 +91,13 @@ def numActive (cont : List Cand) (bs : List Ballot) : Nat :=
 
 theorem numActive_le_cons (cont : List Cand) (bs : List Ballot) (b : Ballot) :
     numActive cont bs ≤ numActive cont (b :: bs) := by
-  simp [numActive]
-  grind
+  simp only [numActive, List.countP_cons]
+  split <;> omega
 
 theorem numActive_cons_le (cont : List Cand) (bs : List Ballot) (b : Ballot) :
      numActive cont (b :: bs) ≤ numActive cont bs + 1  := by
-  simp [numActive]
-  grind
+  simp only [numActive, List.countP_cons]
+  split <;> omega
 
 /-- AS 15.15.350(d): `c` "is highest-ranked on more than one-half of the active ballots". The
 statute applies this test only in the initial tabulation, and so do `NoMajority`, `Elected` and
@@ -121,13 +121,13 @@ def ExistsMajorityWinner (cont : List Cand) (bs : List Ballot) : Prop :=
 
 theorem numActive_cons (cont : List Cand) (bs : List Ballot) (b : Ballot) :
     numActive cont (b :: bs) = numActive cont bs ∨ numActive cont (b :: bs) = numActive cont bs + 1 := by
-  simp [numActive]
-  grind
+  simp only [numActive, List.countP_cons]
+  split <;> omega
 
 theorem votesFor_cons (c : Cand) (cont : List Cand)  (bs : List Ballot) (b : Ballot) :
     votesFor c cont (b :: bs) = votesFor c cont bs ∨ votesFor c cont (b :: bs) = votesFor c cont bs + 1 := by
-  simp [votesFor]
-  grind
+  simp only [votesFor, List.countP_cons]
+  split <;> omega
 
 theorem ite_isVoteFor_add_le (cont : List Cand) (b : Ballot) {c d : Cand} (h : c ≠ d) :
     (if IsVoteFor cont b c then 1 else 0) + (if IsVoteFor cont b d then 1 else 0) ≤

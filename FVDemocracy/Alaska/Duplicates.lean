@@ -240,7 +240,7 @@ theorem readRankings_append_of_eq_voteFor {cont : List Cand} {skipped : Bool}
       · rw [if_neg hskip] at h
         by_cases hr : r = []
         · have hall : ∀ r' ∈ rs, r' = [] := fun r' hr' =>
-            Classical.byContradiction fun hne => hskip ⟨hr, r', hr', hne⟩
+            Decidable.byContradiction fun hne => hskip ⟨hr, r', hr', hne⟩
           rw [readRankings_of_forall_eq_nil cont false hall] at h
           cases h
         · rw [if_neg fun h' => hr h'.1]

@@ -169,7 +169,7 @@ theorem readRankings_dropRepeats (cont : List Cand) (skipped : Bool) (earlier : 
             · rfl
           · have hall : ∀ r' ∈ dropRepeats (earlier ++ r)
                 (rs.takeWhile fun r => decide (r.eraseDups.length < 2)), r' = [] :=
-              fun r' hr' => Classical.byContradiction fun hne => hrest ⟨r', hr', hne⟩
+              fun r' hr' => Decidable.byContradiction fun hne => hrest ⟨r', hr', hne⟩
             rw [if_neg (fun h => hrest h.2), readRankings_of_forall_eq_nil cont false hall]
             cases skipped
             · exact (readReproduction_toBallotResult_of_forall_eq_nil cont true _ hall).symm
@@ -336,11 +336,17 @@ theorem resultOf_toReproduction_eq_inactive_iff (cont : List Cand) (b : Ballot) 
     rw [hmem, exists_mem_takeWhile_iff, exhausted_iff_not_exists_isHighestContinuingRank]
     constructor
     · intro h
-      by_cases hk : ∃ k, IsHighestContinuingRank cont ⟨i, rs⟩ k
-      · obtain ⟨k, hk⟩ := hk
-        refine Or.inr (Classical.byContradiction fun hno => h ⟨k, hk, fun o ho => ?_⟩)
-        exact Nat.lt_of_not_le fun hle => hno ⟨o, k, ho, hk, hle⟩
-      · exact Or.inl hk
+      cases hkc : highestContinuingRank cont ⟨i, rs⟩ with
+      | none =>
+        refine Or.inl fun ⟨k, hk⟩ => ?_
+        rw [(highestContinuingRank_eq_some_iff _ _ k).mpr hk] at hkc
+        cases hkc
+      | some k =>
+        have hk := (highestContinuingRank_eq_some_iff _ _ k).mp hkc
+        by_cases ho : ∃ o, o ≤ k ∧ Ballot.IsOvervoteAt ⟨i, rs⟩ o
+        · obtain ⟨o, hle, ho⟩ := ho
+          exact Or.inr ⟨o, k, ho, hk, hle⟩
+        · exact absurd ⟨k, hk, fun o ho' => Nat.lt_of_not_le fun hle => ho ⟨o, hle, ho'⟩⟩ h
     · rintro (hno | ⟨o, k, ho, hk, hle⟩) ⟨k', hk', hlt⟩
       · exact hno ⟨k', hk'⟩
       · obtain rfl := isHighestContinuingRank_unique hk hk'

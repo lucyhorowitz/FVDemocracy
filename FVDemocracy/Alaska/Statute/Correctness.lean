@@ -42,7 +42,7 @@ theorem hasPath_finalRound_iff (c₁ c₂ : Cand) (bs : List Ballot) (path : Lis
       obtain ⟨rfl, rfl⟩ := (RCVTree.hasPath_winner_iff _ _ _).mp ht
       exact ⟨_, rfl, Or.inr ⟨rfl, rfl, Nat.le_of_lt h⟩⟩
     · rintro ⟨d, rfl, ⟨rfl, rfl, hv⟩ | ⟨rfl, rfl, -⟩⟩
-      · omega
+      · exact absurd hv (Nat.not_le_of_gt h)
       · exact ⟨_, .winner c, [], rfl, by simp, .winner c⟩
   · rw [if_neg (by omega), if_neg (by omega)]
     constructor
@@ -64,7 +64,7 @@ theorem hasPath_finalRound_iff (c₁ c₂ : Cand) (bs : List Ballot) (path : Lis
       exact ⟨_, rfl, Or.inl ⟨rfl, rfl, Nat.le_of_lt h⟩⟩
     · rintro ⟨d, rfl, ⟨rfl, rfl, -⟩ | ⟨rfl, rfl, hv⟩⟩
       · exact ⟨_, .winner c, [], rfl, by simp, .winner c⟩
-      · omega
+      · exact absurd hv (Nat.not_le_of_gt h)
 
 /-- Every path of the final round has one branch. -/
 theorem exists_eq_singleton_of_hasPath_finalRound {c₁ c₂ : Cand} {bs : List Ballot}
@@ -146,7 +146,7 @@ theorem hasPath_tabulateRounds_iff (cont : List Cand) (bs : List Ballot) (defeat
   | case4 bs c₁ c₂ c₃ cs current ih =>
     have hlen : ∀ d, d ∈ current → 2 ≤ (current.erase d).length := by
       intro d hd
-      rw [List.length_erase_of_mem hd]
+      rw [List.length_erase_of_mem' hd]
       simp [current]
     rw [tabulateRounds_cons_cons]
     constructor
@@ -240,7 +240,7 @@ theorem continuing_of_hasPath_tabulateRounds {cont : List Cand} {bs : List Ballo
     subst h₁ h₂
     have hd := singleRound_mono hmem
     have hlen : 2 ≤ (current.erase d).length := by
-      rw [List.length_erase_of_mem hd]
+      rw [List.length_erase_of_mem' hd]
       simp
     have hne' := ne_nil_of_hasPath_tabulateRounds hlen h
     obtain ⟨-, -, -, rfl⟩ := (singleRound_correct _ _ _ _).mp hmem

@@ -26,7 +26,7 @@ window.LEAN = {
  "RCVTree": {
   "kind": "inductive",
   "file": "FVDemocracy/Alaska/Statute/Rounds.lean",
-  "line": 91,
+  "line": 95,
   "code": "inductive RCVTree where\n  | winner : Cand → RCVTree\n  | branch : List (Cand × RCVTree) → RCVTree\nderiving Repr",
   "members": [
    "RCVTree.winner",
@@ -37,7 +37,7 @@ window.LEAN = {
  "RCVTree.HasPath": {
   "kind": "inductive",
   "file": "FVDemocracy/Alaska/Statute/Rounds.lean",
-  "line": 186,
+  "line": 201,
   "code": "/-- `t.HasPath path c`: True iff following the branches of `t` labelled by the candidates in\n`path`, in order, leads to the leaf `RCVTree.winner c`. -/\ninductive RCVTree.HasPath : RCVTree → List Cand → Cand → Prop\n  | winner (c : Cand) : HasPath (.winner c) [] c\n  | branch (children : List (Cand × RCVTree)) (d : Cand) (t : RCVTree) (path : List Cand)\n      (c : Cand) :\n      (d, t) ∈ children → HasPath t path c → HasPath (.branch children) (d :: path) c",
   "members": [
    "RCVTree.HasPath.winner",
@@ -48,7 +48,7 @@ window.LEAN = {
  "RCVTree.winners": {
   "kind": "def",
   "file": "FVDemocracy/Alaska/Statute/Rounds.lean",
-  "line": 163,
+  "line": 167,
   "code": "mutual\ndef RCVTree.winners : RCVTree → List Cand\n  | .winner c => [c]\n  | .branch children => winnersList children\n\ndef winnersList : List (Cand × RCVTree) → List Cand\n  | [] => []\n  | (_, t) :: rest => t.winners ++ winnersList rest\nend",
   "members": [
    "winnersList"
@@ -77,7 +77,7 @@ window.LEAN = {
  "exists_unique_ballot_result": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 364,
+  "line": 352,
   "code": "/-- The main well-definedness theorem of the BallotResult. At each round, each ballot has a unique\ninterpretation as either inactive in this round or counting as a vote for a candidate. -/\ntheorem exists_unique_ballot_result (cont : List Cand) (b : Ballot) :\n    ∃ o, IsBallotResult cont b o ∧ ∀ o', IsBallotResult cont b o' → o' = o",
   "members": [],
   "sorry": false
@@ -93,7 +93,7 @@ window.LEAN = {
  "exists_unique_isBallotResultAfter": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 121,
+  "line": 120,
   "code": "/-- In each round after the candidates in `defeated` are defeated, each ballot of `e` has exactly\none result: it is inactive, or it is tabulated as one vote for one candidate. -/\ntheorem exists_unique_isBallotResultAfter (e : Election) (defeated : List Cand) {b : Ballot}\n    (hb : b ∈ e.ballots) :\n    ∃ o, IsBallotResultAfter e defeated b o ∧\n      ∀ o', IsBallotResultAfter e defeated b o' → o' = o",
   "members": [],
   "sorry": false
@@ -101,7 +101,7 @@ window.LEAN = {
  "isBallotResultAfter_iff_of_mem_roundAfter": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 109,
+  "line": 108,
   "code": "/-- A ballot that the round after defeating the candidates in `defeated` still tabulates has the\nresult there that `IsBallotResult` gives it for that round's continuing candidates. -/\ntheorem isBallotResultAfter_iff_of_mem_roundAfter {e : Election} {defeated : List Cand}\n    {b : Ballot} (hb : b ∈ (roundAfter e defeated).ballots) (o : BallotResult) :\n    IsBallotResultAfter e defeated b o ↔\n      IsBallotResult (roundAfter e defeated).continuing b o",
   "members": [],
   "sorry": false
@@ -109,7 +109,7 @@ window.LEAN = {
  "resultOf": {
   "kind": "def",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 384,
+  "line": 372,
   "code": "/-- The unique result `o` with `IsBallotResult cont b o` (`resultOf_eq_result`). -/\ndef resultOf (cont : List Cand) (b : Ballot) : BallotResult :=\n  if MeetsInactivityCondition cont b then BallotResult.inactive else\n    match highestContinuingCand cont b with\n    | none   => .inactive\n    | some c => .voteFor c",
   "members": [],
   "sorry": false
@@ -117,7 +117,7 @@ window.LEAN = {
  "IsVoteFor": {
   "kind": "def",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 401,
+  "line": 389,
   "code": "/-- AS 15.15.350(d): the ballot `b` is tabulated as one vote for `c`. -/\ndef IsVoteFor (cont : List Cand) (b : Ballot) : Cand → Prop :=\n  fun (c : Cand) => IsBallotResult cont b (BallotResult.voteFor c)",
   "members": [],
   "sorry": false
@@ -125,7 +125,7 @@ window.LEAN = {
  "isVoteFor_iff": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 409,
+  "line": 397,
   "code": "/-- `IsVoteFor` in terms of `highestContinuingCand`, which `resultOf` computes. -/\ntheorem isVoteFor_iff (cont : List Cand) (b : Ballot) (c : Cand) :\n    IsVoteFor cont b c ↔\n      ¬ MeetsInactivityCondition cont b ∧ highestContinuingCand cont b = some c",
   "members": [],
   "sorry": false
@@ -221,7 +221,7 @@ window.LEAN = {
  "tabulateRounds": {
   "kind": "def",
   "file": "FVDemocracy/Alaska/Statute/Rounds.lean",
-  "line": 111,
+  "line": 115,
   "code": "/-- The sequential rounds of AS 15.15.350(d)(1) and (d)(2), which `tabulate` runs only when no\ncandidate has a majority in the initial tabulation: with two or fewer continuing candidates the\nfinal round is run by `finalRound`; otherwise a candidate with the fewest votes is defeated and a\nnew round begins. -/\ndef tabulateRounds (cont : List Cand) (bs : List Ballot) : RCVTree :=\n  match cont with\n  | [] => .branch []\n  | [c] => .winner c\n  | [c₁, c₂] => finalRound c₁ c₂ bs\n  | c₁ :: c₂ :: c₃ :: cs =>\n      let current := c₁ :: c₂ :: c₃ :: cs\n      .branch ((singleRound current bs).attach.map fun ⟨(c, bs'), hx⟩ =>\n        have : c ∈ current := singleRound_mono hx\n        (c, tabulateRounds (current.erase c) bs'))\ntermination_by cont.length",
   "members": [],
   "sorry": false
@@ -301,7 +301,7 @@ window.LEAN = {
  "sum_votes_roundAfter": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 165,
+  "line": 164,
   "code": "/-- AS 15.15.350(d): every ballot tabulated in a round is \"one vote for the highest-ranked\ncontinuing candidate on that ballot\", so the votes of the continuing candidates add up to the\nnumber of ballots tabulated in the round. -/\ntheorem sum_votes_roundAfter (e : Election) (defeated : List Cand) :\n    ((roundAfter e defeated).continuing.map (roundAfter e defeated).votes).sum =\n      (roundAfter e defeated).ballots.length",
   "members": [],
   "sorry": false
@@ -309,7 +309,7 @@ window.LEAN = {
  "exists_elected": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 28,
+  "line": 27,
   "code": "/-- AS 15.15.350(d): when there is at least one candidate, the tabulation elects a candidate. -/\ntheorem exists_elected {e : Election} (hcands : e.cands ≠ []) :\n    ∃ defeated c, Elected e defeated c",
   "members": [],
   "sorry": false
@@ -317,7 +317,7 @@ window.LEAN = {
  "mem_cands_of_elected": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 35,
+  "line": 34,
   "code": "/-- Only a candidate of the election can be elected. -/\ntheorem mem_cands_of_elected {e : Election} {defeated : List Cand} {c : Cand}\n    (h : Elected e defeated c) : c ∈ e.cands",
   "members": [],
   "sorry": false
@@ -365,7 +365,7 @@ window.LEAN = {
  "finalRound": {
   "kind": "def",
   "file": "FVDemocracy/Alaska/Statute/Rounds.lean",
-  "line": 100,
+  "line": 104,
   "code": "/-- AS 15.15.350(d)(1) in the last of the sequential rounds, with two continuing candidates: the\ncandidate with the greater number of votes is elected. Each pair `(d, t)` holds the candidate\n`d` who is not elected and the result `t`. A tie, which AS 15.15.350(e)(3) sends to AS 15.15.460\nand AS 15.20.430 — 15.20.530, gives both pairs. -/\ndef finalRound (c₁ c₂ : Cand) (bs : List Ballot) : RCVTree :=\n  let v₁ := votesFor c₁ [c₁, c₂] bs\n  let v₂ := votesFor c₂ [c₁, c₂] bs\n  if v₂ < v₁ then .branch [(c₂, .winner c₁)]\n  else if v₁ < v₂ then .branch [(c₁, .winner c₂)]\n  else .branch [(c₁, .winner c₂), (c₂, .winner c₁)]",
   "members": [],
   "sorry": false
@@ -373,7 +373,7 @@ window.LEAN = {
  "two_le_length_roundAfter_continuing": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 225,
+  "line": 224,
   "code": "/-- If the initial tabulation has two or more continuing candidates, so does every round: after\ndefeating the candidates in `defeated`, two or more continuing candidates remain. The continuing\ncandidates of the initial tabulation are `initialCands e`, which leaves out the write-in candidates\nunless they qualify under AS 15.15.365(a). -/\ntheorem two_le_length_roundAfter_continuing {e : Election} {defeated : List Cand}\n    (hv : (initialRound e).ValidDefeats defeated) (h : 2 ≤ (initialCands e).length) :\n    2 ≤ (roundAfter e defeated).continuing.length",
   "members": [],
   "sorry": false
@@ -445,7 +445,7 @@ window.LEAN = {
  "Round.isVoteFor_next_of_ne": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 181,
+  "line": 180,
   "code": "/-- AS 15.15.350(d)(2): defeating `d` moves only the \"votes cast for the defeated candidate\". A\nballot tabulated as a vote for another candidate `c` is tabulated as a vote for `c` in the new\nround. -/\ntheorem Round.isVoteFor_next_of_ne {r : Round} {b : Ballot} {c d : Cand}\n    (h : IsVoteFor r.continuing b c) (hne : c ≠ d) : IsVoteFor (r.next d).continuing b c",
   "members": [],
   "sorry": false
@@ -501,7 +501,7 @@ window.LEAN = {
  "readRankings_eq_resultOf": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/ReadBallot.lean",
-  "line": 270,
+  "line": 269,
   "code": "/-- AS 15.15.350(d), (e)(1), (e)(2) and (g)(2) agree: reading a ballot's rankings in order\ngives the ballot the result `resultOf` gives it. -/\ntheorem readRankings_eq_resultOf (cont : List Cand) (b : Ballot) :\n    readRankings cont false b.ranks = resultOf cont b",
   "members": [],
   "sorry": false
@@ -509,7 +509,7 @@ window.LEAN = {
  "readRankings_eq_iff": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/ReadBallot.lean",
-  "line": 277,
+  "line": 276,
   "code": "/-- Reading a ballot's rankings in order gives the result `o` exactly when `o` is the ballot's\nresult under AS 15.15.350(g)(2): `IsBallotResult cont b (.voteFor c)` is `IsVoteFor cont b c`, and\n`IsBallotResult cont b .inactive` is `MeetsInactivityCondition cont b`. -/\ntheorem readRankings_eq_iff (cont : List Cand) (b : Ballot) (o : BallotResult) :\n    readRankings cont false b.ranks = o ↔ IsBallotResult cont b o",
   "members": [],
   "sorry": false
@@ -533,7 +533,7 @@ window.LEAN = {
  "eq_of_elected_of_elected": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 79,
+  "line": 78,
   "code": "/-- AS 15.15.350(d), (e)(3): the only choices the procedure makes are the resolution of ties. If\nno round has two candidates with the fewest votes and no final round is tied, the candidates\ndefeated and the candidate elected are determined by the election. -/\ntheorem eq_of_elected_of_elected {e : Election}\n    (hunique : ∀ ds d₁ d₂, (initialRound e).ValidDefeats ds → (roundAfter e ds).CanDefeat d₁ →\n      (roundAfter e ds).CanDefeat d₂ → d₁ = d₂)\n    (hrecount : ∀ ds, ¬ MandatoryRecount e ds)\n    {ds₁ ds₂ : List Cand} {c₁ c₂ : Cand} (h₁ : Elected e ds₁ c₁) (h₂ : Elected e ds₂ c₂) :\n    ds₁ = ds₂ ∧ c₁ = c₂",
   "members": [],
   "sorry": false
@@ -664,7 +664,7 @@ window.LEAN = {
  "isBallotResult_iff_of_perm": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 512,
+  "line": 505,
   "code": "/-- No result depends on the order in which a ballot lists the candidates at a ranking: two\nballots that list the same candidates at each ranking, in any order, have the same results. -/\ntheorem isBallotResult_iff_of_perm {cont : List Cand} {b b' : Ballot}\n    (h : ∀ k, (b.candsAt k).Perm (b'.candsAt k)) (o : BallotResult) :\n    IsBallotResult cont b o ↔ IsBallotResult cont b' o",
   "members": [],
   "sorry": false
@@ -672,7 +672,7 @@ window.LEAN = {
  "resultOf_eq_of_perm": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 519,
+  "line": 512,
   "code": "/-- `resultOf` does not depend on the order in which a ballot lists the candidates at a ranking,\nalthough `highestContinuingCand` takes the first continuing candidate listed. -/\ntheorem resultOf_eq_of_perm {cont : List Cand} {b b' : Ballot}\n    (h : ∀ k, (b.candsAt k).Perm (b'.candsAt k)) : resultOf cont b = resultOf cont b'",
   "members": [],
   "sorry": false
@@ -680,7 +680,7 @@ window.LEAN = {
  "elected_iff_of_perm": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 342,
+  "line": 341,
   "code": "/-- No election outcome depends on the order in which the ballots list the candidates at a\nranking: if `e` and `e'` have the same candidates, and each ballot of `e'` lists the same\ncandidates at each ranking as the corresponding ballot of `e`, in any order, then the same\ncandidates can be elected after the same defeats. -/\ntheorem elected_iff_of_perm (defeated : List Cand) (c : Cand) :\n    Elected e defeated c ↔ Elected e' defeated c",
   "members": [],
   "sorry": false
@@ -688,7 +688,7 @@ window.LEAN = {
  "mandatoryRecount_iff_of_perm": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 349,
+  "line": 348,
   "code": "/-- No mandatory recount depends on the order in which the ballots list the candidates at a\nranking. -/\ntheorem mandatoryRecount_iff_of_perm (defeated : List Cand) :\n    MandatoryRecount e defeated ↔ MandatoryRecount e' defeated",
   "members": [],
   "sorry": false
@@ -731,7 +731,7 @@ window.LEAN = {
  "twoSkips_iff": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/ReadBallot.lean",
-  "line": 116,
+  "line": 115,
   "code": "/-- AS 15.15.350(g)(2), (g)(6): a ballot has two sequential skipped rankings before its highest\ncontinuing ranking exactly when it has two sequential blank rankings (`Ballot.IsBlankAt`) before\nit. A blank ranking before the highest continuing ranking is a skipped ranking, since a candidate\nis ranked at the highest continuing ranking. -/\ntheorem twoSkips_iff (cont : List Cand) (b : Ballot) :\n    TwoSkips cont b ↔ ∃ k, IsHighestContinuingRank cont b k ∧\n      ∃ j, j + 1 < k ∧ b.candsAt j = [] ∧ b.candsAt (j + 1) = []",
   "members": [],
   "sorry": false
@@ -787,7 +787,7 @@ window.LEAN = {
  "not_isWriteIn_of_elected": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/SpecProperties.lean",
-  "line": 42,
+  "line": 41,
   "code": "/-- AS 15.15.365(a): if the write-in candidates do not qualify, no write-in candidate is\nelected. -/\ntheorem not_isWriteIn_of_elected {e : Election} {defeated : List Cand} {c : Cand}\n    (hq : ¬ WriteInsQualify e.cands e.ballots recountMargin) (h : Elected e defeated c) :\n    ¬ IsWriteIn c",
   "members": [],
   "sorry": false
@@ -811,7 +811,7 @@ window.LEAN = {
  "isHighestContinuingRank_iff_of_isVoteFor": {
   "kind": "theorem",
   "file": "FVDemocracy/Alaska/Statute/StatuteDefs.lean",
-  "line": 427,
+  "line": 415,
   "code": "/-- 6 AAC 25.072: \"The election board shall count a duplicate ranking as the highest ranking\nmarked for the candidate and disregard the remaining rankings for that candidate.\" A ballot that\ncounts for `c` counts at the highest ranking that marks `c`: rank `k` is the highest continuing\nrank exactly when it marks `c` and no rank above it does. -/\ntheorem isHighestContinuingRank_iff_of_isVoteFor {cont : List Cand} {b : Ballot} {c : Cand}\n    (h : IsVoteFor cont b c) (k : Nat) :\n    IsHighestContinuingRank cont b k ↔ c ∈ b.candsAt k ∧ ∀ j < k, c ∉ b.candsAt j",
   "members": [],
   "sorry": false

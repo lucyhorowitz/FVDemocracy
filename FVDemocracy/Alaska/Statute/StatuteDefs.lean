@@ -293,25 +293,17 @@ instance (cont : List Cand) (b : Ballot) : DecidablePred (IsBallotResult cont b)
 
 theorem highestContinuingRank_eq_none_iff_cand (cont : List Cand) (b : Ballot) :
     highestContinuingRank cont b = none ↔ highestContinuingCand cont b = none := by
-  unfold highestContinuingCand highestContinuingRank
+  unfold highestContinuingCand
   constructor
   · intro h
-    split
-    · rfl
-    · simp
-      intro c hc
-      grind
-  · simp
-    intro h cs hcs c hc
-    split at h
-    · grind
-    · next k heq =>
-      exfalso
-      obtain ⟨hlt, hany, _⟩ := List.findIdx?_eq_some_iff_getElem.mp heq
-      obtain ⟨d, hd, hdc⟩ := List.any_eq_true.mp hany
-      have hk : b.candsAt k = b.ranks[k] := by simp [Ballot.candsAt, hlt]
-      simp only [List.find?_eq_none] at h
-      exact h d (hk ▸ hd) (by simpa using hdc)
+    rw [h]
+  · intro h
+    cases hk : highestContinuingRank cont b with
+    | none => rfl
+    | some k =>
+      rw [hk] at h
+      obtain ⟨⟨c, hc, hcont⟩, -⟩ := (highestContinuingRank_eq_some_iff cont b k).mp hk
+      exact absurd (decide_eq_true hcont) (List.find?_eq_none.mp h c hc)
 
 theorem exhausted_iff_highest_cont_rank_none (cont : List Cand) (b : Ballot) :
     Exhausted cont b ↔ highestContinuingRank cont b = none := by
@@ -335,13 +327,9 @@ up the ballot. -/
 theorem highestContinuingRank_le_of_subset {cont cont' : List Cand} {b : Ballot} {k k' : Nat}
     (hsub : cont' ⊆ cont) (hk : highestContinuingRank cont b = some k)
     (hk' : highestContinuingRank cont' b = some k') : k ≤ k' := by
-  obtain ⟨_, _, hbefore⟩ := List.findIdx?_eq_some_iff_getElem.mp hk
-  obtain ⟨hlt', hany', -⟩ := List.findIdx?_eq_some_iff_getElem.mp hk'
-  refine Nat.le_of_not_lt fun hlt => ?_
-  obtain ⟨c, hc, hc'⟩ := List.any_eq_true.mp hany'
-  have hcont : (b.ranks[k']'hlt').any (· ∈ cont) = true :=
-    List.any_eq_true.mpr ⟨c, hc, by simpa using hsub (by simpa using hc')⟩
-  simp [hbefore k' hlt] at hcont
+  obtain ⟨-, hbefore⟩ := (highestContinuingRank_eq_some_iff cont b k).mp hk
+  obtain ⟨⟨c, hc, hc'⟩, -⟩ := (highestContinuingRank_eq_some_iff cont' b k').mp hk'
+  exact Nat.le_of_not_lt fun hlt => hbefore k' hlt c hc (hsub hc')
 
 /-- A ballot with two sequential skipped rankings before its highest continuing ranking still
 has them when the continuing candidates are reduced to `cont'`, unless it no longer ranks any
@@ -472,7 +460,12 @@ variable {cont : List Cand} {b b' : Ballot} (h : ∀ k c, c ∈ b.candsAt k ↔ 
 include h
 
 theorem candsAt_eq_nil_iff_of_mem_iff (k : Nat) : b.candsAt k = [] ↔ b'.candsAt k = [] := by
-  simp only [List.eq_nil_iff_forall_not_mem, h]
+  have hnil : ∀ l l' : List Cand, (∀ c, c ∈ l ↔ c ∈ l') → l = [] → l' = [] := by
+    intro l l' hl hnil
+    cases l' with
+    | nil => rfl
+    | cons c _ => exact absurd ((hl c).mpr List.mem_cons_self) (hnil ▸ List.not_mem_nil)
+  exact ⟨hnil _ _ (h k), hnil _ _ fun c => (h k c).symm⟩
 
 theorem skippedRankingAt_iff_of_mem_iff (k : Nat) :
     b.SkippedRankingAt k ↔ b'.SkippedRankingAt k := by

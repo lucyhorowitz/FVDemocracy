@@ -104,10 +104,9 @@ end NoContinuing
 /-- The ranking at the highest continuing rank is not blank. -/
 theorem candsAt_ne_nil_of_highestContinuingRank {cont : List Cand} {b : Ballot} {k : Nat}
     (hk : highestContinuingRank cont b = some k) : k < b.ranks.length ∧ b.candsAt k ≠ [] := by
-  obtain ⟨hlt, hany, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hk
-  refine ⟨hlt, fun h => ?_⟩
-  simp [Ballot.candsAt, hlt] at h
-  simp [h] at hany
+  obtain ⟨⟨c, hc, -⟩, -⟩ := (highestContinuingRank_eq_some_iff cont b k).mp hk
+  have hne : b.candsAt k ≠ [] := List.ne_nil_of_mem hc
+  exact ⟨Ballot.lt_length_of_candsAt_ne_nil hne, hne⟩
 
 /-- AS 15.15.350(g)(2), (g)(6): a ballot has two sequential skipped rankings before its highest
 continuing ranking exactly when it has two sequential blank rankings (`Ballot.IsBlankAt`) before

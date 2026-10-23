@@ -45,8 +45,12 @@ theorem singleRound_correct (cont : List Cand) (bs : List Ballot) (c : Cand) (bs
       | nil =>
           simp [singleRound]
       | cons c₂ cs =>
-          simp [singleRound]
-          grind
+          simp only [singleRound, List.mem_map, List.mem_filter, beq_iff_eq, Prod.mk.injEq]
+          constructor
+          · rintro ⟨d, ⟨hd, hv⟩, rfl, rfl⟩
+            exact ⟨Nat.le_add_left 2 _, hd, hv, rfl⟩
+          · rintro ⟨-, hc, hv, rfl⟩
+            exact ⟨c, ⟨hc, hv⟩, rfl, rfl⟩
 
 theorem singleRound_nonempty {cont : List Cand} (bs : List Ballot) (hlen : cont.length ≥ 2) :
     singleRound cont bs ≠ [] := by
@@ -79,14 +83,14 @@ theorem singleRound_cont_sublist {cont : List Cand} {bs bs' : List Ballot} {c : 
   have hc := singleRound_mono h
   have hpos : 0 < cont.length := List.length_pos_of_mem hc
   refine ⟨List.erase_sublist, ?_⟩
-  rw [List.length_erase_of_mem hc]
+  rw [List.length_erase_of_mem' hc]
   omega
 
 /-- If the continuing candidates have no duplicates, then after defeating `c`, `c` is not
 continuing, every other candidate still is, and there are still no duplicates. -/
 theorem erase_cont_nodup {cont : List Cand} (hnd : cont.Nodup) (c : Cand) :
     (cont.erase c).Nodup ∧ ∀ d, d ∈ cont.erase c ↔ d ≠ c ∧ d ∈ cont :=
-  ⟨hnd.erase c, fun _ => hnd.mem_erase_iff⟩
+  ⟨hnd.erase c, fun _ => hnd.mem_erase_iff'⟩
 
 inductive RCVTree where
   | winner : Cand → RCVTree
@@ -136,9 +140,9 @@ theorem tabulateRounds_cons_cons (c₁ c₂ : Cand) (cs : List Cand) (bs : List 
     rw [tabulateRounds]
     simp only [finalRound, singleRound, lowestTally, tallies]
     rcases Nat.lt_trichotomy (votesFor c₁ [c₁, c₂] bs) (votesFor c₂ [c₁, c₂] bs) with h | h | h
-    · simp [h, Nat.not_lt_of_gt h, Nat.le_of_lt h, Nat.ne_of_gt h, tabulateRounds]
-    · simp [h, tabulateRounds, h₂]
-    · simp [h, Nat.min_def, Nat.not_le_of_gt h, Nat.ne_of_gt h, h₂]
+    · simp [h, Nat.not_lt_of_gt h, Nat.le_of_lt h, Nat.ne_of_gt h, tabulateRounds, -BEq.rfl]
+    · simp [h, tabulateRounds, h₂, -BEq.rfl]
+    · simp [h, Nat.min_def, Nat.not_le_of_gt h, Nat.ne_of_gt h, h₂, -BEq.rfl]
   | c₃ :: cs =>
     rw [tabulateRounds]
     congr 1
@@ -179,7 +183,18 @@ theorem mem_winnersList_iff (children : List (Cand × RCVTree)) (c : Cand) :
     c ∈ winnersList children ↔ ∃ d t, (d, t) ∈ children ∧ c ∈ t.winners := by
   induction children with
   | nil => simp; exact List.count_eq_zero.mp rfl
-  | cons child children ih => simp [winnersList]; grind
+  | cons child children ih =>
+    obtain ⟨d, t⟩ := child
+    rw [winnersList, List.mem_append, ih]
+    constructor
+    · rintro (hc | ⟨d', t', hmem, hc⟩)
+      · exact ⟨d, t, List.mem_cons_self, hc⟩
+      · exact ⟨d', t', List.mem_cons_of_mem _ hmem, hc⟩
+    · rintro ⟨d', t', hmem, hc⟩
+      rcases List.mem_cons.mp hmem with h | h
+      · cases h
+        exact Or.inl hc
+      · exact Or.inr ⟨d', t', h, hc⟩
 
 /-- `t.HasPath path c`: True iff following the branches of `t` labelled by the candidates in
 `path`, in order, leads to the leaf `RCVTree.winner c`. -/
@@ -241,8 +256,13 @@ theorem mem_winners_tabulateRounds_cons_cons (c₁ c₂ : Cand) (cs : List Cand)
       ∃ d bs', (d, bs') ∈ singleRound (c₁ :: c₂ :: cs) bs ∧
         c ∈ (tabulateRounds ((c₁ :: c₂ :: cs).erase d) bs').winners := by
   rw [tabulateRounds_cons_cons, RCVTree.winners, mem_winnersList_iff]
-  simp
-  grind
+  constructor
+  · rintro ⟨d, t, hdt, hc⟩
+    obtain ⟨⟨d', bs'⟩, hmem, heq⟩ := List.mem_map.mp hdt
+    cases heq
+    exact ⟨d, bs', hmem, hc⟩
+  · rintro ⟨d, bs', hmem, hc⟩
+    exact ⟨d, _, List.mem_map.mpr ⟨(d, bs'), hmem, rfl⟩, hc⟩
 
 theorem winners_tabulateRounds_singleton (c : Cand) (bs : List Ballot) :
     (tabulateRounds [c] bs).winners = [c] := by
@@ -255,7 +275,8 @@ theorem mem_of_mem_winners_tabulateRounds {cont : List Cand} {bs : List Ballot} 
   | case2 bs c' => simpa [winners_tabulateRounds_singleton] using h
   | case3 bs c₁ c₂ =>
     rw [tabulateRounds, finalRound] at h
-    split at h <;> (try split at h) <;> simp [RCVTree.winners, winnersList] at h <;> grind
+    split at h <;> (try split at h) <;> simp [RCVTree.winners, winnersList] at h <;>
+      rcases h with rfl | rfl <;> simp
   | case4 bs c₁ c₂ c₃ cs current ih =>
     obtain ⟨d, bs', hd, hc⟩ := (mem_winners_tabulateRounds_cons_cons c₁ c₂ (c₃ :: cs) bs c).mp h
     exact List.mem_of_mem_erase (ih d bs' hd hc)
@@ -273,8 +294,10 @@ theorem winners_tabulateRounds_ne_nil {cont : List Cand} (bs : List Ballot) (hco
       List.exists_mem_of_ne_nil _ (singleRound_nonempty (cont := c₁ :: c₂ :: c₃ :: cs) bs (by simp))
     have hne : (c₁ :: c₂ :: c₃ :: cs).erase d ≠ [] := by
       intro h0
-      have := List.length_erase_of_mem (singleRound_mono hd)
-      simp_all
+      have := List.length_erase_of_mem' (singleRound_mono hd)
+      rw [h0] at this
+      simp only [List.length_nil, List.length_cons] at this
+      omega
     obtain ⟨w, hw⟩ := List.exists_mem_of_ne_nil _ (ih d bs' hd hne)
     exact List.ne_nil_of_mem
       ((mem_winners_tabulateRounds_cons_cons c₁ c₂ (c₃ :: cs) bs w).mpr ⟨d, bs', hd, hw⟩)

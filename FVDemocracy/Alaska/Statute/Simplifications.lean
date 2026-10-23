@@ -81,8 +81,8 @@ theorem not_canDefeat_of_length_lt {r : Round} (hnd : r.continuing.Nodup) {m : C
     (hm : r.ballots.length < 2 * r.votes m) : ¬ r.CanDefeat m := by
   rintro ⟨hlen, hmem, hle⟩
   obtain ⟨c, hc⟩ : ∃ c, c ∈ r.continuing.erase m :=
-    List.exists_mem_of_length_pos (by rw [List.length_erase_of_mem hmem]; omega)
-  rw [hnd.mem_erase_iff] at hc
+    List.exists_mem_of_length_pos (by rw [List.length_erase_of_mem' hmem]; omega)
+  rw [hnd.mem_erase_iff'] at hc
   exact absurd (hle c hc.2) (Nat.not_le.mpr (votes_lt_votes_of_length_lt hm hc.1))
 
 /-- A candidate `m` with more than one-half of the ballots tabulated in the round `r` is not
@@ -102,7 +102,7 @@ theorem foldl_next_of_length_lt {r : Round} (hnd : r.continuing.Nodup) {ds : Lis
     have hlen := r.length_ballots_next_le d
     have hvotes := r.votes_le_votes_next hne
     obtain ⟨hds, h⟩ :=
-      ih (hnd.erase d) hv.2 ((List.mem_erase_of_ne hne).mpr hmem) (by omega)
+      ih (hnd.erase d) hv.2 ((List.mem_erase_of_ne' hne).mpr hmem) (by omega)
     exact ⟨by simp [hne, hds], h⟩
 
 /-- AS 15.15.350(d)(1), (d)(2): starting from any round, (d)(2) can defeat candidates until two
@@ -119,7 +119,7 @@ theorem exists_validDefeats (r : Round) :
     obtain ⟨d, hd⟩ := List.exists_mem_of_ne_nil _ (loser_exists r.ballots hne)
     rw [losers, List.mem_filter, decide_eq_true_eq] at hd
     have hcd : r.CanDefeat d := (r.canDefeat_iff d).mpr ⟨by omega, hd.1, hd.2⟩
-    obtain ⟨ds, hv, hlen⟩ := ih (r.next d) (by simp [next, List.length_erase_of_mem hd.1, hn])
+    obtain ⟨ds, hv, hlen⟩ := ih (r.next d) (by simp [next, List.length_erase_of_mem' hd.1, hn])
     exact ⟨d :: ds, ⟨hcd, hv⟩, hlen⟩
 
 end Round
@@ -154,7 +154,7 @@ theorem elects_roundAfter_iff_of_isMajorityWinner {e : Election} {defeated : Lis
     fun _ hne => Round.votes_lt_votes_of_length_lt h hne
   constructor
   · rintro ⟨hlen, -, hle⟩
-    refine ⟨Classical.byContradiction fun hne => ?_, hlen⟩
+    refine ⟨Decidable.byContradiction fun hne => ?_, hlen⟩
     exact absurd (hle m hmem) (Nat.not_le.mpr (hlt c hne))
   · rintro ⟨rfl, hlen⟩
     refine ⟨hlen, hmem, fun c' _ => ?_⟩
@@ -174,11 +174,10 @@ theorem exists_elected_iff_exists_elects_roundAfter (e : Election) (c : Cand) :
       exact ⟨ds, hv, (elects_roundAfter_iff_of_isMajorityWinner hm hv c).mpr ⟨rfl, hlen⟩⟩
     · exact ⟨defeated, hv, he⟩
   · rintro ⟨defeated, hv, he⟩
-    by_cases hno : NoMajority e
-    · exact ⟨defeated, Or.inr ⟨hno, hv, he⟩⟩
-    · obtain ⟨m, hm⟩ :
-          ∃ m, IsMajorityWinner (initialRound e).continuing (initialRound e).ballots m := by
-        simpa [NoMajority] using hno
+    cases hmw : majorityWinner (initialRound e).continuing (initialRound e).ballots with
+    | none => exact ⟨defeated, Or.inr ⟨(majorityWinner_eq_none_iff _ _).mp hmw, hv, he⟩⟩
+    | some m =>
+      have hm := (majorityWinner_eq_some_iff _ _ m).mp hmw
       obtain ⟨rfl, -⟩ := (elects_roundAfter_iff_of_isMajorityWinner hm hv c).mp he
       exact ⟨[], Or.inl ⟨hm, rfl⟩⟩
 

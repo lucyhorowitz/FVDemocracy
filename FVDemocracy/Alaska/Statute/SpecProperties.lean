@@ -19,9 +19,8 @@ theorem not_isVoteFor_of_meetsInactivityCondition {cont : List Cand} {b : Ballot
 that ballot. -/
 theorem exists_mem_ranks_of_isVoteFor {cont : List Cand} {b : Ballot} {c : Cand}
     (h : IsVoteFor cont b c) : c ∈ cont ∧ ∃ r ∈ b.ranks, c ∈ r := by
-  obtain ⟨-, hcont, k, hk, hck⟩ := h
-  obtain ⟨hlt, -, -⟩ :=
-    List.findIdx?_eq_some_iff_getElem.mp ((highestContinuingRank_eq_some_iff cont b k).mpr hk)
+  obtain ⟨-, hcont, k, -, hck⟩ := h
+  have hlt := Ballot.lt_length_of_candsAt_ne_nil (List.ne_nil_of_mem hck)
   exact ⟨hcont, b.ranks[k], List.getElem_mem hlt, by simpa [Ballot.candsAt, hlt] using hck⟩
 
 /-- AS 15.15.350(d): when there is at least one candidate, the tabulation elects a candidate. -/
@@ -87,7 +86,7 @@ theorem eq_of_elected_of_elected {e : Election}
   · exact absurd hm₁ (hno₂ c₁)
   · exact absurd hm₂ (hno₁ c₂)
   · obtain rfl : ds₁ = ds₂ := eq_of_validDefeats_of_elects hunique hv₁ he₁ hv₂ he₂
-    refine ⟨rfl, Classical.byContradiction fun hne => hrecount ds₁ ?_⟩
+    refine ⟨rfl, Decidable.byContradiction fun hne => hrecount ds₁ ?_⟩
     exact (mandatoryRecount_iff e ds₁).mpr
       ⟨c₁, c₂, hne, Or.inr ⟨hno₁, hv₁, he₁⟩, Or.inr ⟨hno₂, hv₂, he₂⟩⟩
 
@@ -180,7 +179,7 @@ ballot tabulated as a vote for another candidate `c` is tabulated as a vote for 
 round. -/
 theorem Round.isVoteFor_next_of_ne {r : Round} {b : Ballot} {c d : Cand}
     (h : IsVoteFor r.continuing b c) (hne : c ≠ d) : IsVoteFor (r.next d).continuing b c :=
-  isVoteFor_of_subset List.erase_subset ((List.mem_erase_of_ne hne).mpr (mem_cont_of_isVoteFor h))
+  isVoteFor_of_subset List.erase_subset ((List.mem_erase_of_ne' hne).mpr (mem_cont_of_isVoteFor h))
     h
 
 /-- A ballot tabulated in the round `r` as a vote for a candidate other than `d` is still
@@ -215,7 +214,7 @@ theorem two_le_length_foldl_next_continuing {r : Round} {defeated : List Cand}
   | cons d defeated ih =>
     refine ih hv.2 ?_
     have h3 := hv.1.1
-    simp only [Round.next, List.length_erase_of_mem hv.1.2.1]
+    simp only [Round.next, List.length_erase_of_mem' hv.1.2.1]
     omega
 
 /-- If the initial tabulation has two or more continuing candidates, so does every round: after

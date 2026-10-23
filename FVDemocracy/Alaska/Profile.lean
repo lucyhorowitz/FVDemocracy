@@ -90,7 +90,7 @@ theorem countP_rankings (f : List (List Cand) → Bool) (p : Profile) :
   induction p with
   | nil => rfl
   | cons x p ih =>
-    simp only [rankings, count, List.flatMap_cons, List.countP_append, List.countP_replicate,
+    simp only [rankings, count, List.flatMap_cons, List.countP_append, List.countP_replicate',
       List.filter_cons] at ih ⊢
     rw [ih]
     split <;> simp_all
@@ -100,7 +100,7 @@ theorem filter_rankings (f : List (List Cand) → Bool) (p : Profile) :
   induction p with
   | nil => rfl
   | cons x p ih =>
-    simp only [rankings, List.flatMap_cons, List.filter_append, List.filter_replicate,
+    simp only [rankings, List.flatMap_cons, List.filter_append, List.filter_replicate',
       List.filter_cons] at ih ⊢
     rw [ih]
     split <;> simp_all

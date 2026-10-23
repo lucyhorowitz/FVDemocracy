@@ -3,6 +3,9 @@
 
 General facts about `List.eraseDups` and sums over lists used by the Alaska and RCV
 formalizations.
+
+The primed lemmas and the `_nat` lemmas restate lemmas of the core library with proofs that use
+only the axioms `propext` and `Quot.sound`.
 -/
 
 namespace List
@@ -65,13 +68,19 @@ theorem mem_eraseDups_of_mem {α : Type} [BEq α] [LawfulBEq α] {l : List α} {
     | nil => simp at h
     | cons b bs =>
       rw [List.eraseDups_cons]
-      by_cases hab : a = b
-      · subst hab
+      cases hab : a == b with
+      | true =>
+        rw [eq_of_beq hab]
         exact List.mem_cons_self
-      · have hlen : (bs.filter fun x => !x == b).length ≤ n :=
+      | false =>
+        have hlen : (bs.filter fun x => !x == b).length ≤ n :=
           Nat.le_trans (List.length_filter_le _ _) (by simpa using hl)
-        have has : a ∈ bs := by simpa [hab] using h
-        exact List.mem_cons_of_mem _ (ih _ hlen (List.mem_filter.mpr ⟨has, by simpa using hab⟩))
+        have has : a ∈ bs := by
+          rcases List.mem_cons.mp h with rfl | h
+          · rw [beq_self_eq_true] at hab
+            exact Bool.noConfusion hab
+          · exact h
+        exact List.mem_cons_of_mem _ (ih _ hlen (List.mem_filter.mpr ⟨has, by rw [hab]; rfl⟩))
 
 theorem mem_eraseDups {α : Type} [BEq α] [LawfulBEq α] {l : List α} {a : α} :
     a ∈ l.eraseDups ↔ a ∈ l :=
@@ -128,6 +137,153 @@ theorem length_erase_lt_of_mem {α : Type} [BEq α] [LawfulBEq α] {l : List α}
     · rw [if_pos rfl]
       exact Nat.lt_succ_self _
 
+/-- `List.length_erase_of_mem`. -/
+theorem length_erase_of_mem' {α : Type} [BEq α] [LawfulBEq α] {l : List α} {a : α}
+    (h : a ∈ l) : (l.erase a).length = l.length - 1 := by
+  induction l with
+  | nil => exact absurd h List.not_mem_nil
+  | cons b l ih =>
+    rw [List.erase_cons]
+    cases hb : b == a
+    · rw [if_neg Bool.false_ne_true]
+      have ha : a ∈ l := by
+        rcases List.mem_cons.mp h with rfl | ha
+        · exact absurd (beq_self_eq_true a) (by rw [hb]; exact Bool.false_ne_true)
+        · exact ha
+      have := List.length_pos_of_mem ha
+      rw [List.length_cons, List.length_cons, ih ha]
+      omega
+    · rw [if_pos rfl, List.length_cons, Nat.add_sub_cancel]
+
+/-- `List.mem_erase_of_ne`. -/
+theorem mem_erase_of_ne' {α : Type} [BEq α] [LawfulBEq α] {l : List α} {a b : α}
+    (hab : a ≠ b) : a ∈ l.erase b ↔ a ∈ l := by
+  induction l with
+  | nil => exact Iff.rfl
+  | cons c l ih =>
+    rw [List.erase_cons]
+    cases hc : c == b
+    · rw [if_neg Bool.false_ne_true, List.mem_cons, List.mem_cons, ih]
+    · rw [if_pos rfl, List.mem_cons, eq_of_beq hc]
+      exact ⟨Or.inr, fun h => h.resolve_left hab⟩
+
+/-- `List.Nodup.mem_erase_iff`. -/
+theorem Nodup.mem_erase_iff' {α : Type} [BEq α] [LawfulBEq α] {l : List α} {a b : α}
+    (hl : l.Nodup) : a ∈ l.erase b ↔ a ≠ b ∧ a ∈ l := by
+  induction l with
+  | nil => exact ⟨fun h => absurd h List.not_mem_nil, fun h => absurd h.2 List.not_mem_nil⟩
+  | cons c l ih =>
+    obtain ⟨hc, hl⟩ := List.nodup_cons.mp hl
+    rw [List.erase_cons]
+    cases hcb : c == b
+    · have hcb' : c ≠ b := fun h => by rw [h, beq_self_eq_true] at hcb; exact Bool.noConfusion hcb
+      rw [if_neg Bool.false_ne_true, List.mem_cons, List.mem_cons, ih hl]
+      constructor
+      · rintro (rfl | ⟨hab, hal⟩)
+        · exact ⟨hcb', Or.inl rfl⟩
+        · exact ⟨hab, Or.inr hal⟩
+      · rintro ⟨hab, rfl | hal⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨hab, hal⟩
+    · obtain rfl := eq_of_beq hcb
+      rw [if_pos rfl, List.mem_cons]
+      constructor
+      · intro hal
+        exact ⟨fun h => hc (h ▸ hal), Or.inr hal⟩
+      · rintro ⟨hab, rfl | hal⟩
+        · exact absurd rfl hab
+        · exact hal
+
+private theorem foldl_min_mem_and_le (l : List Nat) (a : Nat) :
+    l.foldl min a ∈ a :: l ∧ ∀ x ∈ a :: l, l.foldl min a ≤ x := by
+  induction l generalizing a with
+  | nil =>
+    exact ⟨List.mem_cons_self, fun x hx => by rw [List.mem_singleton.mp hx]; exact Nat.le_refl _⟩
+  | cons b l ih =>
+    obtain ⟨hmem, hle⟩ := ih (min a b)
+    rw [List.foldl_cons]
+    refine ⟨?_, fun x hx => ?_⟩
+    · rcases List.mem_cons.mp hmem with h | h
+      · rw [h, Nat.min_def]
+        split
+        · exact List.mem_cons_self
+        · exact List.mem_cons_of_mem _ List.mem_cons_self
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+    · have hmin := hle (min a b) List.mem_cons_self
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact Nat.le_trans hmin (Nat.min_le_left _ _)
+      · rcases List.mem_cons.mp hx with rfl | hx
+        · exact Nat.le_trans hmin (Nat.min_le_right _ _)
+        · exact hle x (List.mem_cons_of_mem _ hx)
+
+private theorem foldl_max_mem_and_le (l : List Nat) (a : Nat) :
+    l.foldl max a ∈ a :: l ∧ ∀ x ∈ a :: l, x ≤ l.foldl max a := by
+  induction l generalizing a with
+  | nil =>
+    exact ⟨List.mem_cons_self, fun x hx => by rw [List.mem_singleton.mp hx]; exact Nat.le_refl _⟩
+  | cons b l ih =>
+    obtain ⟨hmem, hle⟩ := ih (max a b)
+    rw [List.foldl_cons]
+    refine ⟨?_, fun x hx => ?_⟩
+    · rcases List.mem_cons.mp hmem with h | h
+      · rw [h, Nat.max_def]
+        split
+        · exact List.mem_cons_of_mem _ List.mem_cons_self
+        · exact List.mem_cons_self
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+    · have hmax := hle (max a b) List.mem_cons_self
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact Nat.le_trans (Nat.le_max_left _ _) hmax
+      · rcases List.mem_cons.mp hx with rfl | hx
+        · exact Nat.le_trans (Nat.le_max_right _ _) hmax
+        · exact hle x (List.mem_cons_of_mem _ hx)
+
+/-- `List.min?_eq_some_iff` for lists of natural numbers. -/
+theorem min?_eq_some_iff_nat {l : List Nat} {m : Nat} :
+    l.min? = some m ↔ m ∈ l ∧ ∀ x ∈ l, m ≤ x := by
+  cases l with
+  | nil => exact ⟨(nomatch ·), fun h => absurd h.1 List.not_mem_nil⟩
+  | cons a l =>
+    obtain ⟨hmem, hle⟩ := foldl_min_mem_and_le l a
+    rw [List.min?_cons', Option.some.injEq]
+    constructor
+    · rintro rfl
+      exact ⟨hmem, hle⟩
+    · rintro ⟨hm, hm'⟩
+      exact Nat.le_antisymm (hle m hm) (hm' _ hmem)
+
+/-- `List.max?_eq_some_iff` for lists of natural numbers. -/
+theorem max?_eq_some_iff_nat {l : List Nat} {m : Nat} :
+    l.max? = some m ↔ m ∈ l ∧ ∀ x ∈ l, x ≤ m := by
+  cases l with
+  | nil => exact ⟨(nomatch ·), fun h => absurd h.1 List.not_mem_nil⟩
+  | cons a l =>
+    obtain ⟨hmem, hle⟩ := foldl_max_mem_and_le l a
+    rw [List.max?_cons', Option.some.injEq]
+    constructor
+    · rintro rfl
+      exact ⟨hmem, hle⟩
+    · rintro ⟨hm, hm'⟩
+      exact Nat.le_antisymm (hm' _ hmem) (hle m hm)
+
+/-- `List.countP_replicate`. -/
+theorem countP_replicate' {α : Type} {p : α → Bool} {a : α} {n : Nat} :
+    (replicate n a).countP p = if p a then n else 0 := by
+  induction n with
+  | zero => split <;> rfl
+  | succ n ih =>
+    rw [List.replicate_succ, List.countP_cons, ih]
+    cases p a <;> rfl
+
+/-- `List.filter_replicate`. -/
+theorem filter_replicate' {α : Type} {p : α → Bool} {a : α} {n : Nat} :
+    (replicate n a).filter p = if p a then replicate n a else [] := by
+  induction n with
+  | zero => split <;> rfl
+  | succ n ih =>
+    rw [List.replicate_succ, List.filter_cons, ih]
+    cases p a <;> rfl
+
 theorem le_sum_of_mem {l : List Nat} {a : Nat} (h : a ∈ l) : a ≤ l.sum := by
   induction l with
   | nil => simp at h
@@ -146,12 +302,12 @@ theorem countP_eq_of_forall_mem_zip {α β : Type} {l : List α} {l' : List β}
   induction l generalizing l' with
   | nil => cases l' with
     | nil => rfl
-    | cons _ _ => simp at hlen
+    | cons _ _ => exact absurd hlen (Nat.succ_ne_zero _).symm
   | cons a l ih => cases l' with
-    | nil => simp at hlen
+    | nil => exact absurd hlen (Nat.succ_ne_zero _)
     | cons a' l' =>
       have ha : p a = p' a' := h (a, a') (by simp)
-      have ht := ih (by simpa using hlen) fun q hq => h q (by simp [hq])
+      have ht := ih (Nat.succ.inj hlen) fun q hq => h q (by simp [hq])
       simp only [List.countP_cons, ha, ht]
 
 /-- Filtering two lists of the same length by predicates that hold at the same positions keeps
