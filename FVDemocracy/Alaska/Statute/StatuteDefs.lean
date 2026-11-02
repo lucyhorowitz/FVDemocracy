@@ -2,6 +2,14 @@ import FVDemocracy.Util.List
 
 namespace Alaska
 
+/-- A candidate: a printed candidate `regular c`, or a write-in candidate `writeIn c`. Because the
+CVR exports do not record the names written in, a vote for `writeIn c` counts for no printed
+candidate, whatever name was written in. When the write-in candidates do not qualify under
+AS 15.15.365(a), the statute also counts write-in votes for no candidate. When they qualify,
+AS 15.15.360(d) does not settle whether a write-in naming a printed candidate counts for that
+candidate. If it does, a ballot can rank one candidate twice at one rank, by marking the candidate
+and writing in the same name, and a `Ballot` represents that as two candidates at the rank, which
+is an overvote. -/
 inductive Cand where
   | writeIn (c : Nat)
   | regular (c : Nat)

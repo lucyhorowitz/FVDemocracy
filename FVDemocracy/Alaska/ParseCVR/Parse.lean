@@ -693,7 +693,10 @@ def notInvalidContest (conditions : Array OutstackCondition) (cc : CardContest) 
     conditions.any fun o => o.id == id && o.description == "InvalidContest"
 
 /-- The candidate a mark is for: the write-in line `i` when the mark has
-`writeinIndex = some i`, otherwise its `candidateId`. -/
+`writeinIndex = some i`, otherwise its `candidateId`. In the 2022 special, 2022 general and 2024
+general exports, every mark with a `writeinIndex` has the contest's write-in candidate as its
+`candidateId`, and the candidate manifests list no named write-in candidates, so the exports do
+not record the names written in. -/
 def Mark.cand (m : Mark) : Cand :=
   match m.writeinIndex with
   | some i => .writeIn i
